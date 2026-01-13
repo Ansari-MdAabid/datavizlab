@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pure Logistic Function Visualizer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 700px;
+            width: 100%;
+        }
+        h2 { margin-top: 0; color: #2c3e50; }
+        p.subtitle { color: #666; font-size: 0.95em; margin-bottom: 25px; }
+        
+        .controls-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px; }
+        .control-val { color: #3498db; font-family: monospace; }
+        input[type=range] { width: 100%; cursor: pointer; }
+
+        .formula-box {
+            font-family: 'Courier New', Courier, monospace;
+            background: #eee;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            border-left: 5px solid #3498db;
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 4px;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Logistic Function Visualizer</h2>
+    <p class="subtitle">Understand how Weight ($w$) and Bias ($b$) shape the S-curve.</p>
+
+    <div class="controls-container">
+        <div class="control-group">
+            <label for="slopeSlider">
+                Weight / Steepness ($w$)
+                <span id="slopeVal" class="control-val">1.0</span>
+            </label>
+            <input type="range" id="slopeSlider" min="-5" max="5" step="0.1" value="1.0">
+            <small style="color:#666">Controls how fast the probability changes.</small>
+        </div>
+
+        <div class="control-group">
+            <label for="biasSlider">
+                Bias / Horizontal Shift ($b$)
+                <span id="biasVal" class="control-val">0.0</span>
+            </label>
+            <input type="range" id="biasSlider" min="-10" max="10" step="0.1" value="0.0">
+            <small style="color:#666">Moves the center point left or right.</small>
+        </div>
+    </div>
+
+    <div class="formula-box">
+        Probability = 1 / (1 + e<sup>-(<span id="f_w">1.0</span>x + <span id="f_b">0.0</span>)</sup>)
+    </div>
+
+    <canvas id="curveCanvas" width="600" height="350"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('curveCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const slopeSlider = document.getElementById('slopeSlider');
+    const biasSlider = document.getElementById('biasSlider');
+    const slopeValDisp = document.getElementById('slopeVal');
+    const biasValDisp = document.getElementById('biasVal');
+    const fwDisp = document.getElementById('f_w');
+    const fbDisp = document.getElementById('f_b');
+
+    let w = parseFloat(slopeSlider.value);
+    let b = parseFloat(biasSlider.value);
+
+    // Graph settings
+    const padding = 40;
+    const width = canvas.width;
+    const height = canvas.height;
+    const minX = -10;
+    const maxX = 10;
+
+    // Coordinate mapping functions
+    function toPixelX(logicalX) {
+        const range = maxX - minX;
+        const plotWidth = width - 2 * padding;
+        return padding + ((logicalX - minX) / range) * plotWidth;
+    }
+
+    function toPixelY(logicalY) {
+        // logicalY is always 0 to 1
+        const plotHeight = height - 2 * padding;
+        // Invert because canvas Y goes down
+        return (height - padding) - (logicalY * plotHeight);
+    }
+
+    // The core Logistic / Sigmoid Function
+    function sigmoid(x, weight, bias) {
+        const z = weight * x + bias;
+        return 1 / (1 + Math.exp(-z));
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+
+        // --- Draw Grid & Axes ---
+        ctx.strokeStyle = "#e0e0e0";
+        ctx.lineWidth = 1;
+        ctx.font = "12px Arial";
+        ctx.fillStyle = "#666";
+        ctx.textAlign = "center";
+
+        // Draw Y-axis lines (0, 0.5, 1.0)
+        const yLevels = [0, 0.5, 1.0];
+        yLevels.forEach(yLog => {
+            let yPix = toPixelY(yLog);
+            ctx.beginPath();
+            ctx.moveTo(padding, yPix);
+            ctx.lineTo(width - padding, yPix);
+            if(yLog === 0.5) {
+                 ctx.setLineDash([5, 5]); // Dashed line for threshold
+                 ctx.strokeStyle = "#bbb";
+            } else {
+                 ctx.setLineDash([]);
+                 ctx.strokeStyle = "#e0e0e0";
+            }
+            ctx.stroke();
+            // Labels
+            ctx.fillText(yLog.toFixed(1), padding - 15, yPix + 4);
+        });
+        
+        // Center X-axis line
+        ctx.beginPath();
+        ctx.moveTo(padding, toPixelY(0));
+        ctx.lineTo(width-padding, toPixelY(0));
+        ctx.strokeStyle = "#aaa";
+        ctx.setLineDash([]);
+        ctx.stroke();
+
+        // Center Y-axis line (x=0)
+        ctx.beginPath();
+        ctx.moveTo(toPixelX(0), padding);
+        ctx.lineTo(toPixelX(0), height - padding);
+        ctx.stroke();
+
+        // X-axis Labels
+        for(let i = minX; i <= maxX; i+=2) {
+            ctx.fillText(i, toPixelX(i), height - padding + 20);
+        }
+        ctx.fillText("Input X", width/2, height - 5);
+        
+        ctx.save();
+        ctx.translate(15, height/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.fillText("Probability", 0, 0);
+        ctx.restore();
+
+        // --- Draw the Sigmoid Curve ---
+        ctx.beginPath();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#3498db";
+        ctx.lineCap = "round";
+
+        let firstPoint = true;
+        // Iterate across the X range with small steps for a smooth curve
+        for(let lx = minX; lx <= maxX; lx += 0.1) {
+            const ly = sigmoid(lx, w, b);
+            const px = toPixelX(lx);
+            const py = toPixelY(ly);
+
+            if (firstPoint) {
+                ctx.moveTo(px, py);
+                firstPoint = false;
+            } else {
+                ctx.lineTo(px, py);
+            }
+        }
+        ctx.stroke();
+    }
+
+    // Update state and redraw when sliders move
+    function updateSliders() {
+        w = parseFloat(slopeSlider.value);
+        b = parseFloat(biasSlider.value);
+        
+        slopeValDisp.innerText = w.toFixed(1);
+        biasValDisp.innerText = b.toFixed(1);
+        
+        // Update formula display with correct formatting for negative signs
+        fwDisp.innerText = (w < 0 ? "(" : "") + w.toFixed(1) + (w < 0 ? ")" : "");
+        fbDisp.innerText = (b < 0 ? "- " + Math.abs(b).toFixed(1) : "+ " + b.toFixed(1));
+
+        draw();
+    }
+
+    slopeSlider.addEventListener('input', updateSliders);
+    biasSlider.addEventListener('input', updateSliders);
+
+    // Initial Draw
+    updateSliders();
+    
+</script>
+</body>
+</html>

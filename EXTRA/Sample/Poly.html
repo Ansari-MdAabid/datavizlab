@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polynomial Playground (No Dependencies)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2 { color: #4facfe; margin-bottom: 10px; }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        canvas {
+            background: #252525;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            cursor: crosshair;
+            width: 100%; /* Responsive width */
+            max-width: 800px;
+        }
+
+        .controls {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border: 1px solid #444;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: 0.2s;
+        }
+
+        .btn-blue { background: #4facfe; }
+        .btn-blue:hover { background: #00f2fe; color: #000; }
+        
+        .btn-green { background: #00b09b; } /* Gradient fallback color */
+        .btn-green:hover { background: #96c93d; }
+
+        .btn-red { background: #ff5e62; }
+        .btn-red:hover { background: #ff9966; }
+
+        .stats {
+            font-family: monospace;
+            background: #111;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #00f2fe;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Polynomial Playground</h2>
+
+    <div class="container">
+        <canvas id="myCanvas" height="450"></canvas>
+
+        <div class="controls">
+            <div class="slider-container">
+                <div style="display:flex; justify-content:space-between;">
+                    <label>Polynomial Degree: <b id="degreeVal">3</b></label>
+                    <span id="maxLabel" style="color: #888; font-size: 0.8em;">(Max: 3)</span>
+                </div>
+                <input type="range" id="degreeSlider" min="1" max="3" value="3" step="1">
+            </div>
+
+            <div class="button-group">
+                <button class="btn-green" onclick="autoFit()">✨ Perfect Fit</button>
+                <button class="btn-blue" onclick="resetData()">Reset Data</button>
+                <button class="btn-red" onclick="clearData()">Clear All</button>
+            </div>
+
+            <div class="stats" id="equationBox">
+                Equation: y = ...
+            </div>
+            
+            <div style="font-size: 0.8em; color: #aaa; text-align: center;">
+                Click to add points. Drag to move. Right-click to delete.
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- SETUP ---
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    const degreeSlider = document.getElementById('degreeSlider');
+    const degreeVal = document.getElementById('degreeVal');
+    const maxLabel = document.getElementById('maxLabel');
+    const eqBox = document.getElementById('equationBox');
+
+    // Make canvas responsive explicitly
+    canvas.width = 800; 
+    canvas.height = 450;
+
+    let points = [];
+    let degree = 3;
+    let coeffs = [];
+    let dragIdx = -1;
+
+    // --- INTERACTION ---
+    
+    // Convert Mouse/Touch to "Math Coordinates" (-1 to 1)
+    function getCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        // Handle touch or mouse
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        // Scale handles if canvas is resized by CSS
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        let x = (clientX - rect.left) * scaleX;
+        let y = (clientY - rect.top) * scaleY;
+
+        // Map pixels to -1..1
+        let mx = (x - canvas.width/2) / (canvas.width/2.5);
+        let my = -(y - canvas.height/2) / (canvas.height/2.5);
+        return {x: mx, y: my};
+    }
+
+    // Input Listeners
+    canvas.addEventListener('mousedown', handleStart);
+    canvas.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', () => dragIdx = -1);
+    
+    canvas.addEventListener('touchstart', handleStart, {passive:false});
+    canvas.addEventListener('touchmove', handleMove, {passive:false});
+    
+    canvas.addEventListener('contextmenu', e => e.preventDefault()); // Stop right click menu
+
+    function handleStart(e) {
+        if(e.touches) e.preventDefault(); // Stop scroll on mobile
+        let m = getCoords(e);
+        
+        // Find clicked point
+        let closest = -1;
+        let minD = 0.1; // Hit radius
+
+        points.forEach((p, i) => {
+            let d = Math.hypot(p.x - m.x, p.y - m.y);
+            if(d < minD) { minD = d; closest = i; }
+        });
+
+        // Right click to delete
+        if ((e.button === 2) && closest !== -1) {
+            points.splice(closest, 1);
+            updateSliderMax();
+            solve();
+            return;
+        }
+
+        if (closest !== -1) {
+            dragIdx = closest;
+        } else {
+            // Add new point
+            points.push({x: m.x, y: m.y});
+            dragIdx = points.length - 1;
+            updateSliderMax();
+            solve();
+        }
+    }
+
+    function handleMove(e) {
+        if (dragIdx === -1) return;
+        if(e.touches) e.preventDefault();
+        
+        let m = getCoords(e);
+        // Clamp to screen
+        points[dragIdx].x = Math.max(-1.5, Math.min(1.5, m.x));
+        points[dragIdx].y = Math.max(-1.5, Math.min(1.5, m.y));
+        solve();
+    }
+
+    // --- CONTROLS ---
+
+    function updateSliderMax() {
+        // Allow degree up to N-1 (but cap at 20 for performance)
+        let limit = Math.max(1, points.length - 1);
+        limit = Math.min(20, limit); 
+        
+        degreeSlider.max = limit;
+        maxLabel.innerText = "(Max: " + limit + ")";
+        
+        if (degree > limit) {
+            degree = limit;
+            degreeSlider.value = degree;
+            degreeVal.innerText = degree;
+        }
+    }
+
+    degreeSlider.oninput = function() {
+        degree = parseInt(this.value);
+        degreeVal.innerText = degree;
+        solve();
+    };
+
+    window.autoFit = function() {
+        let limit = Math.max(1, points.length - 1);
+        limit = Math.min(20, limit);
+        degree = limit;
+        degreeSlider.value = degree;
+        degreeVal.innerText = degree;
+        solve();
+    }
+
+    window.resetData = function() {
+        points = [];
+        for(let x=-0.8; x<=0.8; x+=0.2) {
+            points.push({x: x, y: Math.sin(x*3)*0.5});
+        }
+        updateSliderMax();
+        solve();
+    }
+    
+    window.clearData = function() {
+        points = [];
+        updateSliderMax();
+        solve();
+    }
+
+    // --- MATH SOLVER (Gaussian Elimination) ---
+    // Solves for exact polynomial coefficients instantly
+    function solve() {
+        if (points.length === 0) { coeffs = []; draw(); return; }
+
+        let N = points.length;
+        let M = degree + 1;
+        
+        // Prepare Matrices
+        let X = []; 
+        let Y = [];
+
+        for(let i=0; i<N; i++) {
+            let row = [];
+            for(let p=0; p<M; p++) row.push(Math.pow(points[i].x, p));
+            X.push(row);
+            Y.push(points[i].y);
+        }
+
+        // Normal Equation: (X^T * X) * coeffs = X^T * Y
+        let XT = transpose(X);
+        let A = mult(XT, X);
+        let B = multVec(XT, Y);
+
+        // Ridge Regression (Add small value to diagonal to prevent crash if points < degree)
+        for(let i=0; i<M; i++) A[i][i] += 0.00001;
+
+        coeffs = gaussian(A, B);
+        draw();
+        updateText();
+    }
+
+    function predict(x) {
+        let y = 0;
+        for(let i=0; i<coeffs.length; i++) y += coeffs[i] * Math.pow(x, i);
+        return y;
+    }
+
+    // Matrix Math Helpers
+    function transpose(m) { return m[0].map((_, c) => m.map(r => r[c])); }
+    function mult(m1, m2) {
+        let r = [];
+        for(let i=0; i<m1.length; i++) {
+            r[i] = [];
+            for(let j=0; j<m2[0].length; j++) {
+                let sum = 0;
+                for(let k=0; k<m1[0].length; k++) sum += m1[i][k] * m2[k][j];
+                r[i][j] = sum;
+            }
+        }
+        return r;
+    }
+    function multVec(m, v) {
+        return m.map(row => row.reduce((a, b, i) => a + b * v[i], 0));
+    }
+    function gaussian(A, B) {
+        let n = A.length;
+        let M = A.map((r, i) => [...r, B[i]]);
+        for(let i=0; i<n; i++) {
+            let max = i;
+            for(let k=i+1; k<n; k++) if(Math.abs(M[k][i]) > Math.abs(M[max][i])) max = k;
+            [M[i], M[max]] = [M[max], M[i]];
+            for(let k=i+1; k<n; k++) {
+                let f = -M[k][i] / M[i][i];
+                for(let j=i; j<=n; j++) M[k][j] += f * M[i][j];
+            }
+        }
+        let x = new Array(n).fill(0);
+        for(let i=n-1; i>=0; i--) {
+            let s = 0;
+            for(let j=i+1; j<n; j++) s += M[i][j] * x[j];
+            x[i] = (M[i][n] - s) / M[i][i];
+        }
+        return x;
+    }
+
+    // --- DRAWING ---
+    function draw() {
+        // Clear
+        ctx.fillStyle = "#252525";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Grid
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        // Center Lines
+        let cx = canvas.width/2; 
+        let cy = canvas.height/2;
+        ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
+        ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
+        ctx.stroke();
+
+        // Draw Curve
+        if (coeffs.length > 0) {
+            ctx.strokeStyle = "#4facfe";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            let start = false;
+            for(let px=0; px<=canvas.width; px+=2) {
+                // Pixel -> Math
+                let mx = (px - cx) / (canvas.width/2.5);
+                let my = predict(mx);
+                
+                // Math -> Pixel
+                let py = (-my * (canvas.height/2.5)) + cy;
+
+                // Stop drawing if off screen to avoid glitches
+                if(my > 5 || my < -5) { start = false; continue; }
+
+                if(!start) { ctx.moveTo(px, py); start = true; }
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+
+        // Draw Points
+        for(let i=0; i<points.length; i++) {
+            let p = points[i];
+            let px = (p.x * (canvas.width/2.5)) + cx;
+            let py = (-p.y * (canvas.height/2.5)) + cy;
+
+            // Draw residual line (error)
+            let predY = predict(p.x);
+            let predPy = (-predY * (canvas.height/2.5)) + cy;
+            
+            ctx.strokeStyle = "rgba(255,255,255,0.2)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px, predPy);
+            ctx.stroke();
+
+            // Draw Dot
+            ctx.fillStyle = (i === dragIdx) ? "#fff" : "#ff5e62";
+            ctx.beginPath();
+            ctx.arc(px, py, 6, 0, Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    function updateText() {
+        if(coeffs.length === 0) {
+            eqBox.innerText = "Add points to see the equation.";
+            return;
+        }
+        let txt = "y = ";
+        for(let i=coeffs.length-1; i>=0; i--) {
+            let c = coeffs[i];
+            if (isNaN(c)) continue;
+            let val = Math.abs(c).toFixed(2);
+            let sign = c >= 0 ? " + " : " - ";
+            if(i === coeffs.length-1) sign = (c<0 ? "-" : ""); // First term sign
+            
+            if (i===0) txt += `${sign}${val}`;
+            else if (i===1) txt += `${sign}${val}x`;
+            else txt += `${sign}${val}x^${i}`;
+        }
+        eqBox.innerText = txt;
+    }
+
+    // Start
+    resetData();
+
+</script>
+</body>
+</html>

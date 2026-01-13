@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Regression Interactive Simulation</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #475569;
+            --accent: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        h2 { color: #1e293b; margin-bottom: 10px; }
+        
+        .container {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: crosshair;
+            background: #fff;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        /* Grid background pattern */
+        .canvas-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                linear-gradient(#e2e8f0 1px, transparent 1px),
+                linear-gradient(90deg, #e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        canvas {
+            display: block;
+            z-index: 1;
+            position: relative;
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #0f172a;
+            font-family: monospace;
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover { background-color: #1d4ed8; }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid #cbd5e1;
+            color: var(--secondary);
+        }
+        .btn-outline:hover { background-color: #f1f5f9; }
+
+        .note {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            text-align: center;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Linear Regression Interactive</h2>
+
+    <div class="container">
+        <div class="stats-panel">
+            <div class="stat-item">
+                <div class="stat-value" id="slopeVal">0.00</div>
+                <div class="stat-label">Slope (m)</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="interceptVal">0.00</div>
+                <div class="stat-label">Y-Intercept (b)</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="correlationVal">0.00</div>
+                <div class="stat-label">Correlation (r)</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="equationVal">y = 0x + 0</div>
+                <div class="stat-label">Equation</div>
+            </div>
+        </div>
+
+        <div class="canvas-wrapper">
+            <canvas id="regCanvas" width="700" height="400"></canvas>
+        </div>
+
+        <div class="controls">
+            <button class="btn-outline" onclick="clearPoints()">Reset Canvas</button>
+            <button class="btn-primary" onclick="generateRandom()">Add Random Data</button>
+        </div>
+        <div class="note">Click anywhere on the grid to add data points manually.</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('regCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        let points = [];
+
+        // Add point on click
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Store logical coordinates (Cartesian style: 0,0 at bottom-left)
+            points.push({ 
+                x: x, 
+                y: height - y // Flip Y so math logic works naturally (up is positive)
+            });
+            update();
+        });
+
+        function clearPoints() {
+            points = [];
+            update();
+        }
+
+        function generateRandom() {
+            // Add some noise around a roughly linear path
+            for(let i=0; i<10; i++) {
+                let rx = Math.random() * width;
+                let ry = (rx * 0.5) + (Math.random() * 100); 
+                // Ensure it fits
+                if(ry > height) ry = height - 10;
+                points.push({x: rx, y: ry});
+            }
+            update();
+        }
+
+        function calculateRegression() {
+            const n = points.length;
+            if (n < 2) return { m: 0, b: 0, r: 0 };
+
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+
+            for (let p of points) {
+                sumX += p.x;
+                sumY += p.y;
+                sumXY += (p.x * p.y);
+                sumX2 += (p.x * p.x);
+                sumY2 += (p.y * p.y);
+            }
+
+            // Least Squares Formulas
+            // Slope (m)
+            const numeratorM = (n * sumXY) - (sumX * sumY);
+            const denominatorM = (n * sumX2) - (sumX * sumX);
+            const m = denominatorM === 0 ? 0 : numeratorM / denominatorM;
+
+            // Intercept (b)
+            const b = (sumY - (m * sumX)) / n;
+
+            // Correlation Coefficient (r)
+            const numeratorR = (n * sumXY) - (sumX * sumY);
+            const denominatorR = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
+            const r = denominatorR === 0 ? 0 : numeratorR / denominatorR;
+
+            return { m, b, r };
+        }
+
+        function drawPoints() {
+            ctx.fillStyle = '#2563eb';
+            for (let p of points) {
+                const renderY = height - p.y; // Flip back to canvas coords
+                ctx.beginPath();
+                ctx.arc(p.x, renderY, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawLine(m, b) {
+            if (points.length < 2) return;
+
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            // Calculate Start Point (x=0)
+            let y1 = (m * 0) + b;
+            // Calculate End Point (x=width)
+            let y2 = (m * width) + b;
+
+            // Draw from (0, y1) to (width, y2)
+            // Remember to flip Y for canvas rendering
+            ctx.moveTo(0, height - y1);
+            ctx.lineTo(width, height - y2);
+            ctx.stroke();
+        }
+
+        function drawResiduals(m, b) {
+            if (points.length < 2) return;
+            
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]); // Dashed line
+
+            for (let p of points) {
+                const predictedY = (m * p.x) + b;
+                const actualY = p.y;
+                
+                ctx.beginPath();
+                ctx.moveTo(p.x, height - actualY);
+                ctx.lineTo(p.x, height - predictedY);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]); // Reset dash
+        }
+
+        function updateUI(m, b, r) {
+            // Normalize values for display (map pixels to simpler units if desired, 
+            // but here we just show raw pixel-math for simplicity or scaled down)
+            
+            // To make the numbers look nicer, let's pretend the graph is 10x10 units
+            // This is just for display scaling
+            const scaleX = 10 / width;
+            const scaleY = 10 / height;
+            
+            // We'll stick to raw pixels for accuracy in this demo, but format them nicely
+            document.getElementById('slopeVal').textContent = m.toFixed(3);
+            document.getElementById('interceptVal').textContent = b.toFixed(2);
+            document.getElementById('correlationVal').textContent = r.toFixed(3);
+            
+            const operator = b >= 0 ? '+' : '-';
+            document.getElementById('equationVal').textContent = `y = ${m.toFixed(2)}x ${operator} ${Math.abs(b).toFixed(2)}`;
+        }
+
+        function update() {
+            // Clear Canvas
+            ctx.clearRect(0, 0, width, height);
+
+            const { m, b, r } = calculateRegression();
+
+            drawResiduals(m, b);
+            drawLine(m, b);
+            drawPoints();
+            updateUI(m, b, r);
+        }
+
+        // Initial draw
+        update();
+    </script>
+</body>
+</html>

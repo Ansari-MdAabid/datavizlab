@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Logistic Regression: GD & MLE</title>
+    <style>
+        body { font-family: 'Segoe UI', monospace; background: #f1f5f9; padding: 20px; color: #334155; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 100%; max-width: 900px; }
+        
+        /* Layout Grid */
+        .grid-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-top: 20px; }
+        
+        canvas { border: 1px solid #cbd5e1; border-radius: 8px; width: 100%; background: #fff; }
+        
+        /* Dashboard Panels */
+        .panel { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .panel h3 { margin: 0 0 10px 0; font-size: 1em; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
+        
+        .stat-row { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 5px; }
+        .stat-val { font-weight: bold; color: #2563eb; }
+        .stat-grad { color: #dc2626; }
+        .stat-good { color: #16a34a; }
+
+        /* Log Table */
+        .log-container {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: right; }
+        th { background: #e2e8f0; position: sticky; top: 0; padding: 8px; text-align: right; font-size: 0.8em; color: #475569;}
+        td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; font-family: 'Courier New', monospace; }
+        tr:nth-child(even) { background: #f8fafc; }
+        
+        /* Buttons */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        button { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-gen { background: #3b82f6; color: white; }
+        .btn-gen:hover { background: #2563eb; }
+        .btn-train { background: #22c55e; color: white; }
+        .btn-train:hover { background: #16a34a; }
+        .btn-stop { background: #ef4444; color: white; }
+
+        .math-display { font-family: 'Courier New', Courier, monospace; background: #1e293b; color: #fbbf24; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Logistic Regression Internals</h2>
+        <div style="font-size:0.9em; color:#64748b;">MLE & Gradient Descent Visualizer</div>
+    </div>
+
+    <div class="grid-layout">
+        <div>
+            <div class="btn-group">
+                <button class="btn-gen" onclick="generateData()">1. Generate Data</button>
+                <button class="btn-train" onclick="toggleTraining()" id="trainBtn">2. Start Training</button>
+            </div>
+            <canvas id="mainCanvas" width="600" height="350"></canvas>
+        </div>
+
+        <div>
+            <div class="panel">
+                <h3>Objective Functions</h3>
+                <div class="stat-row">
+                    <span>Log Loss (minimize):</span>
+                    <span id="lossVal" class="stat-val stat-grad">0.0000</span>
+                </div>
+                <div class="stat-row">
+                    <span>Likelihood (maximize):</span>
+                    <span id="mleVal" class="stat-val stat-good">0.00</span>
+                </div>
+                <div style="font-size:0.75em; color:#64748b; margin-top:5px;">
+                    *Likelihood is P(Data|Model). Higher is better.
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Gradient Descent (Derivatives)</h3>
+                <div class="math-display">
+                    dw = &Sigma;(pred-y)*x<br>
+                    db = &Sigma;(pred-y)
+                </div>
+                <div class="stat-row">
+                    <span>Slope Gradient (dw):</span>
+                    <span id="dwVal" class="stat-val">0.000</span>
+                </div>
+                <div class="stat-row">
+                    <span>Bias Gradient (db):</span>
+                    <span id="dbVal" class="stat-val">0.000</span>
+                </div>
+                <div style="margin-top:10px; border-top:1px dashed #ccc; padding-top:5px;">
+                    <strong>Current Weights:</strong><br>
+                    w = <span id="wVal">0.0</span>, b = <span id="bVal">0.0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="log-container">
+        <table id="logTable">
+            <thead>
+                <tr>
+                    <th>Epoch</th>
+                    <th>Log Loss (Cost)</th>
+                    <th>Likelihood (MLE)</th>
+                    <th>w (Slope)</th>
+                    <th>dw (Grad)</th>
+                    <th>b (Bias)</th>
+                    <th>db (Grad)</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const tableBody = document.querySelector('#logTable tbody');
+    const trainBtn = document.getElementById('trainBtn');
+
+    // Display Elements
+    const elLoss = document.getElementById('lossVal');
+    const elMle = document.getElementById('mleVal');
+    const elDw = document.getElementById('dwVal');
+    const elDb = document.getElementById('dbVal');
+    const elW = document.getElementById('wVal');
+    const elB = document.getElementById('bVal');
+
+    // Simulation State
+    let data = [];
+    let w = 0;
+    let b = 0;
+    let isTraining = false;
+    let animationId;
+    let epoch = 0;
+    
+    // Config
+    const LEARNING_RATE = 0.05;
+    const MAX_EPOCHS = 500;
+    
+    // Canvas Mapping
+    const padding = 40;
+    function mapX(x) { return padding + (x/12)*(canvas.width - 2*padding); }
+    function mapY(y) { return (canvas.height - padding) - y*(canvas.height - 2*padding); }
+
+    function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+    function generateData() {
+        stopTraining();
+        data = [];
+        w = 0; b = 0; epoch = 0;
+        tableBody.innerHTML = ""; // Clear table
+        updateDisplay(0, 0, 0, 0, 0, 0); // Reset display
+
+        // Generate Data (Secretly: slope=1.5, bias=-9, roughly centered at 6)
+        for(let i=0; i<50; i++) {
+            let x = Math.random() * 12; // 0 to 12 hours
+            let z = 1.5 * x - 9;
+            let prob = sigmoid(z);
+            let y = Math.random() < prob ? 1 : 0;
+            data.push({x, y});
+        }
+        draw();
+    }
+
+    function toggleTraining() {
+        if(isTraining) stopTraining();
+        else startTraining();
+    }
+
+    function startTraining() {
+        isTraining = true;
+        trainBtn.innerText = "Stop Training";
+        trainBtn.className = "btn-stop";
+        loop();
+    }
+
+    function stopTraining() {
+        isTraining = false;
+        trainBtn.innerText = "2. Start Training";
+        trainBtn.className = "btn-train";
+        cancelAnimationFrame(animationId);
+    }
+
+    function loop() {
+        if(!isTraining) return;
+        
+        // --- 1. Calculate Gradients & Loss ---
+        let dw = 0;
+        let db = 0;
+        let totalLoss = 0;
+        let likelihoodLogSum = 0; 
+        let m = data.length;
+
+        for(let p of data) {
+            let pred = sigmoid(w * p.x + b);
+            let error = pred - p.y;
+            
+            // Accumulate Gradients
+            dw += error * p.x;
+            db += error;
+
+            // Calculate Loss & Likelihood
+            // Clamp to prevent log(0)
+            let safePred = Math.max(0.000001, Math.min(0.999999, pred));
+            
+            // Log Loss Formula
+            totalLoss += -(p.y * Math.log(safePred) + (1-p.y) * Math.log(1-safePred));
+            
+            // Log Likelihood (Just simpler calculation for display)
+            // L = P^y * (1-P)^(1-y)
+            // Log(L) = y*log(P) + (1-y)*log(1-P)
+            // This is actually negative of individual loss
+            let pointLogLikelihood = (p.y * Math.log(safePred) + (1-p.y) * Math.log(1-safePred));
+            likelihoodLogSum += pointLogLikelihood;
+        }
+
+        // Average Gradients
+        dw = dw / m;
+        db = db / m;
+        let avgLoss = totalLoss / m;
+        
+        // MLE Value (e^LogLikelihoodSum) - will be tiny, so we scale or show scientific
+        // For educational purposes, let's show the Log Likelihood Sum, which we want to MAXIMIZE (make less negative)
+        let logLikelihood = likelihoodLogSum.toFixed(2);
+
+        // --- 2. Update Weights (Gradient Descent Step) ---
+        w = w - (LEARNING_RATE * dw);
+        b = b - (LEARNING_RATE * db);
+
+        epoch++;
+
+        // --- 3. Update UI ---
+        // Update Graph
+        draw();
+        
+        // Update Stats Panel
+        updateDisplay(avgLoss, logLikelihood, w, b, dw, db);
+
+        // Update Log Table (Every 5 epochs to save rendering)
+        if(epoch % 5 === 0) {
+            addLogEntry(epoch, avgLoss, logLikelihood, w, dw, b, db);
+        }
+
+        if(epoch >= MAX_EPOCHS) stopTraining();
+        else animationId = requestAnimationFrame(loop);
+    }
+
+    function updateDisplay(loss, mle, wVal, bVal, dwVal, dbVal) {
+        elLoss.innerText = loss.toFixed(4);
+        elMle.innerText = mle; // Showing Log Likelihood
+        elDw.innerText = dwVal.toFixed(4);
+        elDb.innerText = dbVal.toFixed(4);
+        elW.innerText = wVal.toFixed(2);
+        elB.innerText = bVal.toFixed(2);
+    }
+
+    function addLogEntry(ep, loss, mle, w, dw, b, db) {
+        let row = `<tr>
+            <td>${ep}</td>
+            <td style="color:#dc2626">${loss.toFixed(4)}</td>
+            <td style="color:#16a34a">${mle}</td>
+            <td>${w.toFixed(3)}</td>
+            <td style="color:#64748b">${dw.toFixed(4)}</td>
+            <td>${b.toFixed(3)}</td>
+            <td style="color:#64748b">${db.toFixed(4)}</td>
+        </tr>`;
+        tableBody.insertAdjacentHTML('afterbegin', row);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Axes
+        ctx.strokeStyle = "#ddd";
+        ctx.beginPath();
+        ctx.moveTo(padding, mapY(0)); ctx.lineTo(canvas.width-padding, mapY(0)); // X axis
+        ctx.moveTo(mapX(0), padding); ctx.lineTo(mapX(0), canvas.height-padding); // Y axis
+        ctx.stroke();
+
+        // 0.5 Threshold Line
+        ctx.setLineDash([5,5]);
+        ctx.beginPath();
+        ctx.moveTo(padding, mapY(0.5)); ctx.lineTo(canvas.width-padding, mapY(0.5));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Data Points
+        for(let p of data) {
+            ctx.beginPath();
+            ctx.arc(mapX(p.x), mapY(p.y), 6, 0, 2*Math.PI);
+            ctx.fillStyle = p.y === 1 ? "#22c55e" : "#ef4444";
+            ctx.fill();
+            ctx.strokeStyle = "#333";
+            ctx.stroke();
+        }
+
+        // Sigmoid Curve
+        ctx.beginPath();
+        ctx.strokeStyle = "#2563eb";
+        ctx.lineWidth = 3;
+        for(let x=0; x<=12; x+=0.1) {
+            let y = sigmoid(w*x + b);
+            if(x===0) ctx.moveTo(mapX(x), mapY(y));
+            else ctx.lineTo(mapX(x), mapY(y));
+        }
+        ctx.stroke();
+    }
+
+    // Init
+    generateData();
+</script>
+</body>
+</html>

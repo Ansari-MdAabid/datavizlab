@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Kernel Trick Animation</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        p { max-width: 700px; text-align: center; color: #aaa; margin-bottom: 30px;}
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #333;
+            color: white;
+            border: 2px solid #555;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        button:hover { background-color: #555; border-color: #777;}
+        button.active { background-color: #007bff; border-color: #0056b3; }
+
+        #plot-container {
+            width: 90%;
+            height: 70vh;
+            min-height: 500px;
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Visualizing the Kernel Trick</h1>
+    <p>Watch how data that is impossible to separate linearly in 2D becomes easy to separate once "lifted" into higher dimensions.</p>
+
+    <div class="controls">
+        <button id="btn-2d" class="active" onclick="resetTo2D()">1. Normal 2D View</button>
+        <button id="btn-3d" onclick="liftTo3D()">2. Apply Kernel Lift (High-Dim)</button>
+        <button id="btn-plane" onclick="showPlane()">3. Find Linear Plane</button>
+    </div>
+
+    <div id="plot-container"></div>
+<script>
+        // ===========================
+        // 1. Data Generation
+        // ===========================
+        const N_inner = 100;
+        const N_outer = 150;
+        let x = [], y = [], z_flat = [], z_lifted = [], colors = [];
+
+        // Inner Circle (Red)
+        for (let i = 0; i < N_inner; i++) {
+            let r = Math.random() * 2;
+            let theta = Math.random() * 2 * Math.PI;
+            let xi = r * Math.cos(theta);
+            let yi = r * Math.sin(theta);
+            x.push(xi); y.push(yi);
+            z_flat.push(0); 
+            z_lifted.push((xi*xi + yi*yi) * 0.8); 
+            colors.push('#ff385f');
+        }
+
+        // Outer Ring (Blue)
+        for (let i = 0; i < N_outer; i++) {
+            let r = Math.random() * 3 + 3.5;
+            let theta = Math.random() * 2 * Math.PI;
+            let xi = r * Math.cos(theta);
+            let yi = r * Math.sin(theta);
+            x.push(xi); y.push(yi);
+            z_flat.push(0);
+            z_lifted.push((xi*xi + yi*yi) * 0.8);
+            colors.push('#00d2ff');
+        }
+
+        // Plane Data
+        let plane_x = [], plane_y = [], plane_z = [];
+        const gridSize = 20;
+        const planeHeight = 7.5;
+        for(let i=0; i<=gridSize; i++) {
+            let row_x = [], row_y = [], row_z = [];
+            for(let j=0; j<=gridSize; j++) {
+                row_x.push((j/gridSize)*14 - 7);
+                row_y.push((i/gridSize)*14 - 7);
+                row_z.push(planeHeight); 
+            }
+            plane_x.push(row_x); plane_y.push(row_y); plane_z.push(row_z);
+        }
+
+        // ===========================
+        // 2. Plot Initialization
+        // ===========================
+        
+        // Define Trace 0: The Points
+        const scatterTrace = {
+            x: x, y: y, z: z_flat,
+            mode: 'markers',
+            type: 'scatter3d',
+            marker: { size: 6, color: colors, opacity: 0.8, line: {color: 'white', width: 0.5} },
+            name: 'Data Points'
+        };
+
+        // Define Trace 1: The Plane (Initially Hidden)
+        const planeTrace = {
+            x: plane_x, y: plane_y, z: plane_z,
+            type: 'surface',
+            showscale: false,
+            opacity: 0, // Hidden
+            colorscale: [[0, '#ffffff'], [1, '#ffffff']],
+            name: 'Linear Hyperplane'
+        };
+
+        const layout = {
+            paper_bgcolor: '#1e1e1e',
+            margin: {l:0, r:0, t:0, b:0},
+            scene: {
+                camera: { eye: {x: 0, y: 0, z: 2.5}, up: {x:0, y:1, z:0} }, // Top-down view
+                xaxis: {title: '', showgrid: true, gridcolor: '#444', zeroline: false, showticklabels: false},
+                yaxis: {title: '', showgrid: true, gridcolor: '#444', zeroline: false, showticklabels: false},
+                zaxis: {title: 'Kernel Dimension', range: [0, 35], showgrid: true, gridcolor: '#444', zeroline: false},
+                aspectmode: 'manual', 
+                aspectratio: {x:1, y:1, z:0.7}
+            },
+            showlegend: false
+        };
+
+        Plotly.newPlot('plot-container', [scatterTrace, planeTrace], layout, {responsive: true});
+
+
+        // ===========================
+        // 3. Robust Interaction Logic
+        // ===========================
+        
+        function updateButtons(activeId) {
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById(activeId).classList.add('active');
+        }
+
+        // Button 1: Reset to 2D
+        function resetTo2D() {
+            updateButtons('btn-2d');
+
+            // 1. Move Camera first (smoothly)
+            Plotly.animate('plot-container', {
+                layout: { 'scene.camera.eye': {x: 0, y: 0, z: 2.5} }
+            }, {transition: {duration: 1000}, frame: {duration: 1000}});
+
+            // 2. Update Data (using React for reliability)
+            // We verify the data is flat and plane is hidden
+            scatterTrace.z = z_flat; 
+            scatterTrace.marker.opacity = 0.8;
+            planeTrace.opacity = 0;
+            
+            // Apply updates
+            Plotly.react('plot-container', [scatterTrace, planeTrace], layout);
+        }
+
+        // Button 2: Lift to 3D
+        function liftTo3D() {
+            updateButtons('btn-3d');
+
+            // 1. Update Data State FIRST (Ensure points go up)
+            // We modify the trace objects directly
+            scatterTrace.z = z_lifted; 
+            scatterTrace.marker.opacity = 0.8;
+            planeTrace.opacity = 0; // Ensure plane is still hidden
+
+            // Use React to force the update immediately (Fixes the "Not Working" issue)
+            Plotly.react('plot-container', [scatterTrace, planeTrace], layout);
+
+            // 2. Animate the Camera Move AFTER data update
+            Plotly.animate('plot-container', {
+                layout: { 'scene.camera.eye': {x: 1.5, y: 1.5, z: 1.2} }
+            }, {transition: {duration: 1500, easing: 'cubic-in-out'}, frame: {duration: 1500}});
+        }
+
+        // Button 3: Show Plane
+        function showPlane() {
+            updateButtons('btn-plane');
+
+            // Update State: Make points semi-transparent and show plane
+            scatterTrace.z = z_lifted; // Ensure they are still up
+            scatterTrace.marker.opacity = 0.4; // Fade points slightly
+            planeTrace.opacity = 0.8; // Show plane
+
+            // Force update
+            Plotly.react('plot-container', [scatterTrace, planeTrace], layout);
+        }
+    </script>
+</body>
+</html>

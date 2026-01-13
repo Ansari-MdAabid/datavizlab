@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Pass Predictor (Logistic Regression)</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 600px; width: 100%; text-align: center; }
+        h2 { color: #333; }
+        .slider-container { margin: 30px 0; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        .visual-box {
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            position: relative;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .prediction-box {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 8px;
+            transition: 0.3s;
+            color: white;
+        }
+        
+        .pass { background-color: #2ecc71; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4); }
+        .fail { background-color: #e74c3c; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4); }
+        
+        .math-explainer { background: #eef2f3; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left; font-size: 14px; color: #555; }
+        .bar-container { width: 100%; background: #ddd; height: 20px; border-radius: 10px; margin-top: 10px; overflow: hidden; position: relative;}
+        .bar-fill { height: 100%; transition: width 0.2s; background: #3498db; }
+        .threshold-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: black; z-index: 10; }
+        
+        canvas { border: 1px solid #eee; margin-top: 10px; background: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Will You Pass?</h2>
+    <p>Move the slider to see how <strong>Logistic Regression</strong> turns "Hours Studied" into a Probability.</p>
+
+    <div class="slider-container">
+        <label>Hours Studied: <span id="hoursVal" style="font-weight:bold; color:#3498db; font-size:1.2em;">5.0</span></label><br>
+        <input type="range" min="0" max="10" step="0.1" value="5.0" id="studySlider" oninput="updateSim()">
+    </div>
+
+    <div id="resultBox" class="prediction-box fail">
+        FAIL
+    </div>
+
+    <div class="math-explainer">
+        <strong>1. The Math (The S-Curve):</strong><br>
+        We convert hours into a probability using the Sigmoid formula.<br>
+        <em>Probability = <span id="probVal">0</span>%</em>
+        
+        <div class="bar-container">
+            <div class="threshold-line" title="Threshold (50%)"></div>
+            <div id="probBar" class="bar-fill" style="width: 0%;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:10px;">
+            <span>0% (Definite Fail)</span>
+            <span>Threshold (50%)</span>
+            <span>100% (Definite Pass)</span>
+        </div>
+        <br>
+        <strong>2. The Decision:</strong><br>
+        Is the probability higher than 50%?<br>
+        <span id="decisionText">No. Therefore, class is 0 (Fail).</span>
+    </div>
+
+    <canvas id="sigmoidCanvas" width="500" height="150"></canvas>
+    <p style="font-size: 12px; color: #888;">The Blue Line is the Logistic Regression Model.</p>
+</div>
+
+<script>
+    const slider = document.getElementById('studySlider');
+    const hoursVal = document.getElementById('hoursVal');
+    const resultBox = document.getElementById('resultBox');
+    const probVal = document.getElementById('probVal');
+    const probBar = document.getElementById('probBar');
+    const decisionText = document.getElementById('decisionText');
+    const canvas = document.getElementById('sigmoidCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // These are "trained" weights for this specific student scenario
+    // B0 = -4 (Intercept), B1 = 0.8 (Slope/Importance of studying)
+    // This means the "tipping point" is at 5 hours.
+    const b0 = -4; 
+    const b1 = 0.8;
+
+    function sigmoid(z) {
+        return 1 / (1 + Math.exp(-z));
+    }
+
+    function drawGraph(currentHours) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Grid
+        ctx.strokeStyle = "#eee";
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height/2);
+        ctx.lineTo(canvas.width, canvas.height/2); // 50% line
+        ctx.stroke();
+
+        // Draw S-Curve
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#3498db";
+        for(let x = 0; x <= 10; x+=0.1) {
+            let z = b0 + (b1 * x);
+            let y = sigmoid(z);
+            
+            // Map logic to pixels
+            let pixelX = (x / 10) * canvas.width;
+            let pixelY = canvas.height - (y * canvas.height); // Flip Y
+            
+            if(x===0) ctx.moveTo(pixelX, pixelY);
+            else ctx.lineTo(pixelX, pixelY);
+        }
+        ctx.stroke();
+
+        // Draw Current User Dot
+        let z = b0 + (b1 * currentHours);
+        let y = sigmoid(z);
+        let dotX = (currentHours / 10) * canvas.width;
+        let dotY = canvas.height - (y * canvas.height);
+
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, 8, 0, 2*Math.PI);
+        ctx.fillStyle = y >= 0.5 ? "#2ecc71" : "#e74c3c";
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    function updateSim() {
+        let hours = parseFloat(slider.value);
+        hoursVal.innerText = hours.toFixed(1);
+
+        // 1. Calculate Z (Linear part)
+        // z = intercept + (coefficient * input)
+        let z = b0 + (b1 * hours);
+
+        // 2. Calculate Probability (Sigmoid part)
+        let probability = sigmoid(z);
+        let probPercent = (probability * 100).toFixed(1);
+
+        // Update UI
+        probVal.innerText = probPercent;
+        probBar.style.width = probPercent + "%";
+        drawGraph(hours);
+
+        // 3. Make Decision (Threshold = 0.5)
+        if (probability >= 0.5) {
+            resultBox.innerText = "PASS";
+            resultBox.className = "prediction-box pass";
+            probBar.style.backgroundColor = "#2ecc71";
+            decisionText.innerHTML = "Yes (Higher than 50%). <br>Model predicts <strong>Class 1 (Pass)</strong>.";
+        } else {
+            resultBox.innerText = "FAIL";
+            resultBox.className = "prediction-box fail";
+            probBar.style.backgroundColor = "#e74c3c";
+            decisionText.innerHTML = "No (Lower than 50%). <br>Model predicts <strong>Class 0 (Fail)</strong>.";
+        }
+    }
+
+    // Initialize
+    updateSim();
+</script>
+
+</body>
+</html>
