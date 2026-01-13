@@ -131,11 +131,20 @@ const algorithmData = [
 
 const Theory = ({ onUseAlgorithm }) => {
     const [selectedAlgo, setSelectedAlgo] = useState(algorithmData[0].algorithms[0]);
+    const [showMobileDetail, setShowMobileDetail] = useState(false);
+
+    const handleSelectAlgo = (algo) => {
+        setSelectedAlgo(algo);
+        setShowMobileDetail(true);
+    };
 
     return (
-        <div className="flex h-full w-full overflow-hidden bg-background/50 rounded-xl border border-border/50">
+        <div className="flex h-full w-full overflow-hidden bg-background/50 rounded-xl border border-border/50 relative">
             {/* Left Sidebar - Algorithm List */}
-            <aside className="w-80 border-r border-border bg-card/20 backdrop-blur-xl flex flex-col overflow-hidden">
+            <aside className={cn(
+                "w-full xl:w-80 border-r border-border bg-card/20 backdrop-blur-xl flex flex-col overflow-hidden transition-all absolute inset-0 xl:relative z-10",
+                showMobileDetail ? "-translate-x-full xl:translate-x-0" : "translate-x-0"
+            )}>
                 <div className="p-6 border-b border-border/40">
                     <h2 className="text-xl font-bold tracking-tight">Theory Lab</h2>
                     <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Foundations & Logic</p>
@@ -151,7 +160,7 @@ const Theory = ({ onUseAlgorithm }) => {
                                 {cat.algorithms.map((algo) => (
                                     <button
                                         key={algo.id}
-                                        onClick={() => setSelectedAlgo(algo)}
+                                        onClick={() => handleSelectAlgo(algo)}
                                         className={cn(
                                             "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all group",
                                             selectedAlgo.id === algo.id
@@ -173,7 +182,10 @@ const Theory = ({ onUseAlgorithm }) => {
             </aside>
 
             {/* Right Pane - Theory Detail */}
-            <main className="flex-1 overflow-hidden relative flex flex-col">
+            <main className={cn(
+                "flex-1 overflow-hidden relative flex flex-col bg-background/50 xl:bg-transparent absolute inset-0 xl:relative z-20 transition-all",
+                showMobileDetail ? "translate-x-0" : "translate-x-full xl:translate-x-0"
+            )}>
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={selectedAlgo.id}
@@ -181,21 +193,29 @@ const Theory = ({ onUseAlgorithm }) => {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
                         transition={{ duration: 0.2 }}
-                        className="flex-1 overflow-y-auto custom-scrollbar p-12"
+                        className="flex-1 overflow-y-auto custom-scrollbar p-6 xl:p-12"
                     >
-                        <div className="max-w-3xl mx-auto space-y-10">
-                            <div className="flex items-center justify-between border-b border-border/40 pb-8">
+                        <div className="max-w-3xl mx-auto space-y-6 xl:space-y-10">
+                            {/* Mobile Back Button */}
+                            <button
+                                onClick={() => setShowMobileDetail(false)}
+                                className="xl:hidden flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+                            >
+                                <ChevronRight className="h-4 w-4 rotate-180 mr-1" /> Back to List
+                            </button>
+
+                            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between border-b border-border/40 pb-6 xl:pb-8 gap-4 shadow-sm xl:shadow-none">
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-primary">
                                         <BookOpen className="h-4 w-4" />
                                         <span className="text-xs font-bold uppercase tracking-widest">Algorithm Deep Dive</span>
                                     </div>
-                                    <h1 className="text-5xl font-black tracking-tighter">{selectedAlgo.title}</h1>
+                                    <h1 className="text-3xl xl:text-5xl font-black tracking-tighter">{selectedAlgo.title}</h1>
                                 </div>
                                 <Button
-                                    variant="neon"
+                                    variant="outline"
                                     onClick={() => onUseAlgorithm(selectedAlgo.id)}
-                                    className="h-14 px-8 rounded-2xl shadow-xl hover:scale-105 transition-all text-base"
+                                    className="w-full xl:w-auto h-12 xl:h-14 px-6 xl:px-8 rounded-xl xl:rounded-2xl shadow-xl hover:scale-105 transition-all text-sm xl:text-base hidden xl:flex border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                                 >
                                     <PlayCircle className="mr-3 h-5 w-5" />
                                     Launch experiment
@@ -203,18 +223,27 @@ const Theory = ({ onUseAlgorithm }) => {
                             </div>
 
                             <div className="prose prose-invert max-w-none">
-                                <div className="p-10 rounded-[2.5rem] bg-card/30 border border-border/50 backdrop-blur-md shadow-inner relative overflow-hidden group">
+                                <div className="p-6 xl:p-10 rounded-[2rem] xl:rounded-[2.5rem] bg-card/30 border border-border/50 backdrop-blur-md shadow-inner relative overflow-hidden group">
                                     <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-3xl rounded-full" />
-                                    <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                    <h3 className="text-xl xl:text-2xl font-bold mb-4 xl:mb-6 flex items-center gap-3">
                                         <div className="h-3 w-3 rounded-full bg-primary animate-pulse" />
                                         The Concept
                                     </h3>
-                                    <p className="text-xl text-muted-foreground leading-relaxed font-medium">
+                                    <p className="text-base xl:text-xl text-muted-foreground leading-relaxed font-medium">
                                         {selectedAlgo.theory}
                                     </p>
                                 </div>
-
                             </div>
+
+                            {/* Mobile Launch Button (Bottom Fixed or Inline) */}
+                            <Button
+                                variant="outline"
+                                onClick={() => onUseAlgorithm(selectedAlgo.id)}
+                                className="w-full h-12 rounded-xl shadow-xl text-sm xl:hidden flex items-center justify-center mt-8 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                            >
+                                <PlayCircle className="mr-2 h-5 w-5" />
+                                Launch experiment
+                            </Button>
                         </div>
                     </motion.div>
                 </AnimatePresence>
