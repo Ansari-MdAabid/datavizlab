@@ -17,4 +17,8 @@ export default defineConfig({
   preview: {
     host: true,
   },
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+  }
 })
