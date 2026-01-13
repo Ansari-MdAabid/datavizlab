@@ -45,8 +45,8 @@ const About = () => {
                 ].map((item, i) => (
                     <motion.div
                         key={i}
-                        initial={{ opacity: 0, opacity: 0 }}
-                        whileInView={{ opacity: 1, opacity: 1 }}
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
                         transition={{ delay: i * 0.1 }}
                         className="bg-card/20 border border-border/40 p-6 rounded-3xl backdrop-blur-md"
                     >

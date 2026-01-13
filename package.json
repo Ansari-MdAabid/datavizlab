@@ -1,0 +1,10 @@
+{
+    "name": "datavizlab-root",
+    "private": true,
+    "scripts": {
+        "dev": "npm run dev --prefix EXTRA",
+        "build": "npm run build --prefix EXTRA",
+        "lint": "npm run lint --prefix EXTRA",
+        "preview": "npm run preview --prefix EXTRA"
+    }
+}
