@@ -118,87 +118,93 @@ function App() {
 
     const renderLeftPanel = () => (
         <div className="space-y-4">
-            <Card>
-                <CardHeader className="py-4">
-                    <CardTitle className="text-lg">Algorithms</CardTitle>
+            <Card className="border-0 shadow-none bg-transparent">
+                <CardHeader className="py-2 px-0">
+                    <CardTitle className="text-lg px-2">Algorithms</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Accordion type="single" collapsible className="w-full" defaultValue="clustering">
 
-                        <AccordionItem value="classification">
-                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50">
-                                <span className="flex items-center"><Brain className="mr-2 h-4 w-4" /> Classification</span>
+                        <AccordionItem value="classification" className="border-b border-border/50">
+                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50 rounded-lg">
+                                <span className="flex items-center"><Brain className="mr-2 h-4 w-4 text-primary" /> Classification</span>
                             </AccordionTrigger>
-                            <AccordionContent className="px-2 pt-1">
-                                <NavButton id="knn" label="K-Nearest Neighbors" icon={Activity} />
-                                <NavButton id="c45" label="C4.5 / Decision Tree" />
-                                <NavButton id="naivebayes" label="Naive Bayes" />
-                                <NavButton id="svm" label="SVM" />
-                                <NavButton id="randomforest" label="Random Forest" />
+                            <AccordionContent className="px-2 pt-1 pb-2">
+                                <div className="space-y-1">
+                                    <NavButton id="knn" label="K-Nearest Neighbors" icon={Activity} />
+                                    <NavButton id="c45" label="C4.5 / Decision Tree" />
+                                    <NavButton id="naivebayes" label="Naive Bayes" />
+                                    <NavButton id="svm" label="SVM" />
+                                    <NavButton id="randomforest" label="Random Forest" />
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="clustering">
-                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50">
-                                <span className="flex items-center"><Boxes className="mr-2 h-4 w-4" /> Clustering</span>
+                        <AccordionItem value="clustering" className="border-b border-border/50">
+                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50 rounded-lg">
+                                <span className="flex items-center"><Boxes className="mr-2 h-4 w-4 text-primary" /> Clustering</span>
                             </AccordionTrigger>
-                            <AccordionContent className="px-2 pt-1">
-                                <NavButton id="kmeans" label="K-Means" icon={GitGraph} />
-                                <NavButton id="dbscan" label="DBSCAN" />
-                                <NavButton id="em" label="Expectation-Maximization" />
+                            <AccordionContent className="px-2 pt-1 pb-2">
+                                <div className="space-y-1">
+                                    <NavButton id="kmeans" label="K-Means" icon={GitGraph} />
+                                    <NavButton id="dbscan" label="DBSCAN" />
+                                    <NavButton id="em" label="Expectation-Maximization" />
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="regression">
-                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50">
-                                <span className="flex items-center"><TrendingUp className="mr-2 h-4 w-4" /> Regression</span>
+                        <AccordionItem value="regression" className="border-b border-border/50">
+                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50 rounded-lg">
+                                <span className="flex items-center"><TrendingUp className="mr-2 h-4 w-4 text-primary" /> Regression</span>
                             </AccordionTrigger>
-                            <AccordionContent className="px-2 pt-1">
-                                <NavButton id="regression" label="Linear Regression" />
-                                <NavButton id="logistic" label="Logistic Regression" />
+                            <AccordionContent className="px-2 pt-1 pb-2">
+                                <div className="space-y-1">
+                                    <NavButton id="regression" label="Linear Regression" />
+                                    <NavButton id="logistic" label="Logistic Regression" />
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="association">
-                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50">
-                                <span className="flex items-center"><Network className="mr-2 h-4 w-4" /> Association Rules</span>
+                        <AccordionItem value="association" className="border-b border-border/50">
+                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50 rounded-lg">
+                                <span className="flex items-center"><Network className="mr-2 h-4 w-4 text-primary" /> Association Rules</span>
                             </AccordionTrigger>
-                            <AccordionContent className="px-2 pt-1">
-                                <NavButton id="apriori" label="Apriori" />
-                                <NavButton id="fpgrowth" label="FP-Growth" />
+                            <AccordionContent className="px-2 pt-1 pb-2">
+                                <div className="space-y-1">
+                                    <NavButton id="apriori" label="Apriori" />
+                                    <NavButton id="fpgrowth" label="FP-Growth" />
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="dimreduction">
-                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50">
-                                <span className="flex items-center"><Layers className="mr-2 h-4 w-4" /> Dim. Reduction</span>
+                        <AccordionItem value="dimreduction" className="border-b border-border/50">
+                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50 rounded-lg">
+                                <span className="flex items-center"><Layers className="mr-2 h-4 w-4 text-primary" /> Dim. Reduction</span>
                             </AccordionTrigger>
-                            <AccordionContent className="px-2 pt-1">
-                                <NavButton id="pca" label="PCA" />
-                                <NavButton id="svd" label="SVD" />
+                            <AccordionContent className="px-2 pt-1 pb-2">
+                                <div className="space-y-1">
+                                    <NavButton id="pca" label="PCA" />
+                                    <NavButton id="svd" label="SVD" />
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
 
-                        <AccordionItem value="ensemble">
-                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50">
-                                <span className="flex items-center"><Search className="mr-2 h-4 w-4" /> Ensemble & Other</span>
+                        <AccordionItem value="ensemble" className="border-b-0">
+                            <AccordionTrigger className="px-4 text-sm hover:no-underline hover:bg-accent/50 rounded-lg">
+                                <span className="flex items-center"><Search className="mr-2 h-4 w-4 text-primary" /> Ensemble & Other</span>
                             </AccordionTrigger>
-                            <AccordionContent className="px-2 pt-1">
-                                <NavButton id="gradient" label="Gradient Descent" icon={Activity} />
-                                <NavButton id="adaboost" label="AdaBoost / GB" />
-                                <NavButton id="pagerank" label="PageRank" />
+                            <AccordionContent className="px-2 pt-1 pb-2">
+                                <div className="space-y-1">
+                                    <NavButton id="gradient" label="Gradient Descent" icon={Activity} />
+                                    <NavButton id="adaboost" label="AdaBoost / GB" />
+                                    <NavButton id="pagerank" label="PageRank" />
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
 
                     </Accordion>
                 </CardContent>
             </Card>
-
-            {/* Dynamic Feature Controls */}
-            <div className="px-1">
-                <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 mt-4 ml-2">Controls</h3>
-                {leftPanelContent || <div className="text-sm text-muted-foreground italic ml-2">Select an algorithm...</div>}
-            </div>
         </div>
     );
 
@@ -207,6 +213,7 @@ function App() {
             <Navbar activeView={mainView} setActiveView={setMainView} />
             <MainLayout
                 leftPanel={renderLeftPanel()}
+                bottomPanel={leftPanelContent || <div className="text-sm text-muted-foreground italic p-4 text-center">Select an algorithm to view controls</div>}
                 rightPanel={rightPanelContent}
                 showSidebars={mainView === 'labs'}
                 noPadding={mainView === 'theory'}
