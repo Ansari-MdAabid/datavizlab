@@ -51,14 +51,7 @@ const Navbar = ({ activeView, setActiveView }) => {
                 ))}
             </div>
 
-            <div className="flex items-center gap-2 xl:gap-4">
-                <Button variant="outline" className="rounded-full px-3 xl:px-6 border-border/50 hover:bg-card h-8 xl:h-10 text-xs xl:text-sm">
-                    Docs
-                </Button>
-                <Button className="hidden xl:flex rounded-full px-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
-                    Sign In
-                </Button>
-            </div>
+
         </nav>
     );
 };
